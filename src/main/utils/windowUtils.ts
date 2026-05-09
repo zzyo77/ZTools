@@ -1,4 +1,10 @@
-import { BrowserWindow } from 'electron'
+import {
+  BaseWindow,
+  OpenDialogOptions,
+  OpenDialogReturnValue,
+  BrowserWindow,
+  dialog
+} from 'electron'
 import os from 'os'
 
 /**
@@ -83,4 +89,30 @@ export function applyWindowMaterial(
       }
       break
   }
+}
+/**
+ * 打开文件选择窗口
+ *
+ * @param parentWindow 父窗口
+ * @param options 文件窗口选项
+ * @param errorMessage 未选择任何文件时，返回错误信息
+ */
+export async function openDialog(
+  parentWindow: BrowserWindow,
+  options: OpenDialogOptions,
+  errorMessage: string
+): Promise<{
+  success: boolean
+  data?: OpenDialogReturnValue
+  error?: string
+}> {
+  const result = await dialog.showOpenDialog(parentWindow, options)
+  if (!parentWindow.isDestroyed()) {
+    parentWindow.show()
+  }
+  if (result.canceled || result.filePaths.length === 0) {
+    return { success: false, error: errorMessage }
+  }
+  return { success: true, data: result }
+}
 }

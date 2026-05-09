@@ -1,8 +1,9 @@
-import { app, dialog, ipcMain, shell } from 'electron'
+import { app, ipcMain, shell } from 'electron'
 import { promises as fs } from 'fs'
 import path from 'path'
 import { pinyin as getPinyin } from 'pinyin-pro'
 import databaseAPI from '../shared/database'
+import { openDialog } from '../../utils/windowUtils'
 
 /**
  * 本地启动项类型
@@ -82,18 +83,19 @@ export class LocalShortcutsAPI {
       } else {
         properties = ['openFile']
       }
-
       // 打开文件选择对话框
-      const result = await dialog.showOpenDialog(this.mainWindow, {
-        title: type === 'folder' ? '选择文件夹' : '选择文件或应用',
-        properties
-      })
-
-      if (result.canceled || result.filePaths.length === 0) {
-        return { success: false, error: '用户取消选择' }
+      const result = await openDialog(
+        this.mainWindow,
+        {
+          title: type === 'folder' ? '选择文件夹' : '选择文件或应用',
+          properties
+        },
+        '用户取消选择'
+      )
+      if (!result.success) {
+        return result
       }
-
-      const selectedPath = result.filePaths[0]
+      const selectedPath = result.data!.filePaths[0]
 
       // 获取文件信息
       const stats = await fs.stat(selectedPath)

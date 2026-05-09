@@ -20,6 +20,7 @@ import {
   type DevProjectRegistry,
   type DevProjectRecord
 } from './pluginDevelopmentRegistry'
+import { openDialog } from '../../utils/windowUtils'
 
 // ============================================================
 // Dependencies Interface
@@ -349,16 +350,20 @@ export class PluginDevProjectsAPI {
   public async importDevPlugin(pluginJsonPath?: string): Promise<any> {
     try {
       if (!pluginJsonPath) {
-        const result = await dialog.showOpenDialog(this.deps.mainWindow!, {
-          title: '选择插件配置文件',
-          properties: ['openFile'],
-          filters: [{ name: '插件配置', extensions: ['json'] }],
-          message: '请选择 plugin.json 文件'
-        })
-        if (result.canceled || result.filePaths.length === 0) {
-          return { success: false, error: '未选择文件' }
+        const result = await openDialog(
+          this.deps.mainWindow!,
+          {
+            title: '选择插件配置文件',
+            properties: ['openFile'],
+            filters: [{ name: '插件配置', extensions: ['json'] }],
+            message: '请选择 plugin.json 文件'
+          },
+          '未选择文件'
+        )
+        if (!result.success) {
+          return result
         }
-        pluginJsonPath = result.filePaths[0]
+        pluginJsonPath = result.data!.filePaths[0]
       }
 
       if (path.basename(pluginJsonPath) !== 'plugin.json') {
@@ -639,16 +644,20 @@ export class PluginDevProjectsAPI {
       let configPath = providedConfigPath ? path.resolve(providedConfigPath) : ''
 
       if (!configPath) {
-        const result = await dialog.showOpenDialog(this.deps.mainWindow!, {
-          title: '选择 plugin.json',
-          properties: ['openFile'],
-          filters: [{ name: '插件配置', extensions: ['json'] }],
-          message: `为 ${projectName} 选择 plugin.json`
-        })
-        if (result.canceled || result.filePaths.length === 0) {
-          return { success: false, error: '未选择文件' }
+        const result = await openDialog(
+          this.deps.mainWindow!,
+          {
+            title: '选择 plugin.json',
+            properties: ['openFile'],
+            filters: [{ name: '插件配置', extensions: ['json'] }],
+            message: `为 ${projectName} 选择 plugin.json`
+          },
+          '未选择文件'
+        )
+        if (!result.success) {
+          return result
         }
-        configPath = path.resolve(result.filePaths[0])
+        configPath = path.resolve(result.data!.filePaths[0])
       }
 
       if (path.basename(configPath) !== 'plugin.json') {

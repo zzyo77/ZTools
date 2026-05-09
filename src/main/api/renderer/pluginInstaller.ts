@@ -1,6 +1,6 @@
 import type { PluginManager } from '../../managers/pluginManager'
 import type { PluginDevProjectsAPI } from './pluginDevProjects'
-import { app, dialog, shell } from 'electron'
+import { app, shell } from 'electron'
 import { promises as fs } from 'fs'
 import path from 'path'
 import { pathToFileURL } from 'url'
@@ -11,6 +11,7 @@ import { downloadFile } from '../../utils/download.js'
 import { httpGet } from '../../utils/httpRequest.js'
 import { sleep } from '../../utils/common.js'
 import databaseAPI from '../shared/database'
+import { openDialog } from '../../utils/windowUtils'
 
 /** 插件的本地安装目录 */
 const PLUGIN_DIR = path.join(app.getPath('userData'), 'plugins')
@@ -57,17 +58,21 @@ export class PluginInstallerAPI {
    */
   public async selectPluginFile(): Promise<any> {
     try {
-      const result = await dialog.showOpenDialog(this.deps.mainWindow!, {
-        title: '选择插件文件',
-        filters: [{ name: '插件文件', extensions: ['zpx', 'zip'] }],
-        properties: ['openFile']
-      })
+      const result = await openDialog(
+        this.deps.mainWindow!,
+        {
+          title: '选择插件文件',
+          filters: [{ name: '插件文件', extensions: ['zpx', 'zip'] }],
+          properties: ['openFile']
+        },
+        '未选择文件'
+      )
 
-      if (result.canceled || result.filePaths.length === 0) {
-        return { success: false, error: '未选择文件' }
+      if (!result.success) {
+        return result
       }
 
-      return { success: true, filePath: result.filePaths[0] }
+      return { success: true, filePath: result.data!.filePaths[0] }
     } catch (error: unknown) {
       console.error('[Plugins] 选择插件文件失败:', error)
       return { success: false, error: error instanceof Error ? error.message : '未知错误' }
@@ -81,17 +86,21 @@ export class PluginInstallerAPI {
    */
   public async importPlugin(): Promise<any> {
     try {
-      const result = await dialog.showOpenDialog(this.deps.mainWindow!, {
-        title: '选择插件文件',
-        filters: [{ name: '插件文件', extensions: ['zpx', 'zip'] }],
-        properties: ['openFile']
-      })
+      const result = await openDialog(
+        this.deps.mainWindow!,
+        {
+          title: '选择插件文件',
+          filters: [{ name: '插件文件', extensions: ['zpx', 'zip'] }],
+          properties: ['openFile']
+        },
+        '未选择文件'
+      )
 
-      if (result.canceled || result.filePaths.length === 0) {
-        return { success: false, error: '未选择文件' }
+      if (!result.success) {
+        return result
       }
 
-      return await this.installPluginFromPath(result.filePaths[0])
+      return await this.installPluginFromPath(result.data!.filePaths[0])
     } catch (error: unknown) {
       console.error('[Plugins] 导入插件失败:', error)
       return { success: false, error: error instanceof Error ? error.message : '未知错误' }

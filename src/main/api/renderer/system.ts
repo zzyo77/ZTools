@@ -1,10 +1,10 @@
-import { app, clipboard, dialog, ipcMain, Menu, shell } from 'electron'
+import { app, clipboard, ipcMain, Menu, shell } from 'electron'
 import { promises as fs } from 'fs'
 import path from 'path'
 import { pathToFileURL } from 'url'
 import clipboardManager from '../../managers/clipboardManager'
 import appleScriptHelper from '../../utils/appleScriptHelper'
-import { isWindows11 } from '../../utils/windowUtils'
+import { isWindows11, openDialog } from '../../utils/windowUtils'
 
 // 头像目录
 const AVATAR_DIR = path.join(app.getPath('userData'), 'avatar')
@@ -212,17 +212,19 @@ export class SystemAPI {
 
   public async selectAvatar(): Promise<any> {
     try {
-      const result = await dialog.showOpenDialog(this.mainWindow!, {
-        title: '选择头像图片',
-        filters: [{ name: '图片文件', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'] }],
-        properties: ['openFile']
-      })
-
-      if (result.canceled || result.filePaths.length === 0) {
-        return { success: false, error: '未选择文件' }
+      const result = await openDialog(
+        this.mainWindow!,
+        {
+          title: '选择头像图片',
+          filters: [{ name: '图片文件', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'] }],
+          properties: ['openFile']
+        },
+        '未选择文件'
+      )
+      if (!result.success) {
+        return result
       }
-
-      const originalPath = result.filePaths[0]
+      const originalPath = result.data!.filePaths[0]
       const ext = path.extname(originalPath)
       const fileName = `avatar${ext}`
 
