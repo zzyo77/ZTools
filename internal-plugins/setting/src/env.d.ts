@@ -16,6 +16,18 @@ interface Services {
   writeImageFile: (base64Url: string) => string | undefined
 }
 
+type WebSearchEngineType = 'search' | 'webpage'
+
+interface WebSearchEngine {
+  id: string
+  name: string
+  url: string
+  icon: string
+  enabled: boolean
+  type: WebSearchEngineType
+  keyword?: string
+}
+
 declare global {
   interface Window {
     services: Services
@@ -406,35 +418,11 @@ declare global {
         webSearch: {
           getAll: () => Promise<{
             success: boolean
-            data?: Array<{
-              id: string
-              name: string
-              url: string
-              icon: string
-              enabled: boolean
-              type: 'search' | 'webpage'
-              keyword?: string
-            }>
+            data?: WebSearchEngine[]
             error?: string
           }>
-          add: (engine: {
-            id: string
-            name: string
-            url: string
-            icon: string
-            enabled: boolean
-            type: 'search' | 'webpage'
-            keyword?: string
-          }) => Promise<{ success: boolean; error?: string }>
-          update: (engine: {
-            id: string
-            name: string
-            url: string
-            icon: string
-            enabled: boolean
-            type: 'search' | 'webpage'
-            keyword?: string
-          }) => Promise<{ success: boolean; error?: string }>
+          add: (engine: WebSearchEngine) => Promise<{ success: boolean; error?: string }>
+          update: (engine: WebSearchEngine) => Promise<{ success: boolean; error?: string }>
           delete: (id: string) => Promise<{ success: boolean; error?: string }>
           fetchFavicon: (
             url: string
