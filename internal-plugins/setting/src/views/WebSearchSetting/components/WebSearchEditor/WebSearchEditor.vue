@@ -36,6 +36,7 @@ const urlHint = computed(() =>
     : '使用 {q} 作为搜索关键词的占位符；未填写协议时会自动补充 https://'
 )
 const isFetchingIcon = ref(false)
+const iconFileInputRef = ref<HTMLInputElement | null>(null)
 
 const formData = ref<WebSearchEngine>({
   id: '',
@@ -93,6 +94,35 @@ async function handleFetchFavicon(): Promise<void> {
   } finally {
     isFetchingIcon.value = false
   }
+}
+
+function handleSelectIconFile(): void {
+  iconFileInputRef.value?.click()
+}
+
+function handleIconFileChange(event: Event): void {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+
+  if (!file) return
+  if (!file.type.startsWith('image/')) {
+    error('请选择图片文件')
+    return
+  }
+
+  const reader = new FileReader()
+  reader.onload = () => {
+    if (typeof reader.result === 'string') {
+      formData.value.icon = reader.result
+    } else {
+      error('读取图标失败')
+    }
+  }
+  reader.onerror = () => {
+    error('读取图标失败')
+  }
+  reader.readAsDataURL(file)
 }
 
 function handleSave(): void {
@@ -216,14 +246,23 @@ function isHttpUrl(url: string): boolean {
               <div v-else class="i-z-search font-size-24px"></div>
             </div>
             <button
+              type="button"
               class="btn btn-sm"
               :disabled="isFetchingIcon || !formData.url"
               @click="handleFetchFavicon"
             >
               {{ isFetchingIcon ? '获取中...' : '自动获取' }}
             </button>
+            <button type="button" class="btn btn-sm" @click="handleSelectIconFile">上传图标</button>
+            <input
+              ref="iconFileInputRef"
+              class="icon-file-input"
+              type="file"
+              accept="image/*"
+              @change="handleIconFileChange"
+            />
           </div>
-          <p class="form-hint">根据 URL 自动获取网站图标</p>
+          <p class="form-hint">根据 URL 自动获取网站图标，或上传本地图片</p>
         </div>
       </div>
 
@@ -303,6 +342,7 @@ function isHttpUrl(url: string): boolean {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .icon-preview {
@@ -326,6 +366,10 @@ function isHttpUrl(url: string): boolean {
 .preview-placeholder {
   color: var(--text-secondary);
   opacity: 0.5;
+}
+
+.icon-file-input {
+  display: none;
 }
 
 .editor-footer {
