@@ -30,6 +30,7 @@ import pluginManager from './pluginManager'
 // 窗口材质类型
 type WindowMaterial = 'mica' | 'acrylic' | 'none'
 const WINDOW_BLUR_DRAG_INPUT_CONSUMER = 'window-blur-drag'
+const DEFAULT_MODAL_DIALOG_BLUR_HIDE_RELEASE_DELAY_MS = 500
 
 /**
  * 应用快捷键触发时携带的文件输入
@@ -83,7 +84,7 @@ class WindowManager {
   private lastFocusTarget: 'mainWindow' | 'plugin' | null = null // 窗口隐藏前的焦点状态
   private isRestoringFocus: boolean = false // 是否正在恢复焦点状态（防止 focus 事件监听器干扰）
   private suppressBlurHide: boolean = false // 临时抑制 blur 事件隐藏窗口（文件关联打开等场景）
-  // Native modal dialogs can emit queued blur/mouseup events around close.
+  // 原生模态对话框关闭前后可能发出排队的 blur/mouseup 事件。
   private modalDialogBlurHideSuppressed: boolean = false
   private modalDialogBlurHideReleaseTimer: ReturnType<typeof setTimeout> | null = null
   private modalDialogBlurHideSuppressionDepth: number = 0
@@ -899,11 +900,14 @@ class WindowManager {
     this.startAutoBackToSearchTimer()
   }
 
-  public withBlurHideSuppressed<T>(callback: () => PromiseLike<T>, releaseDelayMs?: number): Promise<T>
+  public withBlurHideSuppressed<T>(
+    callback: () => PromiseLike<T>,
+    releaseDelayMs?: number
+  ): Promise<T>
   public withBlurHideSuppressed<T>(callback: () => T, releaseDelayMs?: number): T
   public withBlurHideSuppressed<T>(
     callback: () => T | PromiseLike<T>,
-    releaseDelayMs: number = 500
+    releaseDelayMs: number = DEFAULT_MODAL_DIALOG_BLUR_HIDE_RELEASE_DELAY_MS
   ): T | Promise<T> {
     this.beginModalDialogBlurHideSuppression()
     try {
@@ -912,6 +916,25 @@ class WindowManager {
         return Promise.resolve(result).finally(() => {
           this.endModalDialogBlurHideSuppression(releaseDelayMs)
         })
+      }
+
+      this.endModalDialogBlurHideSuppression(releaseDelayMs)
+      return result
+    } catch (error) {
+      this.endModalDialogBlurHideSuppression(releaseDelayMs)
+      throw error
+    }
+  }
+
+  public withBlurHideSuppressedSync<T>(
+    callback: () => T,
+    releaseDelayMs: number = DEFAULT_MODAL_DIALOG_BLUR_HIDE_RELEASE_DELAY_MS
+  ): T {
+    this.beginModalDialogBlurHideSuppression()
+    try {
+      const result = callback()
+      if (this.isPromiseLike(result)) {
+        throw new TypeError('withBlurHideSuppressedSync callback must not return a Promise')
       }
 
       this.endModalDialogBlurHideSuppression(releaseDelayMs)

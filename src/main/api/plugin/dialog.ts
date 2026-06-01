@@ -76,7 +76,7 @@ export class PluginDialogAPI {
           event.returnValue = undefined
           return
         }
-        const result = windowManager.withBlurHideSuppressed(() =>
+        const result = windowManager.withBlurHideSuppressedSync(() =>
           dialog.showSaveDialogSync(targetWindow, options)
         )
         event.returnValue = result
@@ -97,7 +97,7 @@ export class PluginDialogAPI {
           event.returnValue = []
           return
         }
-        const result = windowManager.withBlurHideSuppressed(() =>
+        const result = windowManager.withBlurHideSuppressedSync(() =>
           dialog.showOpenDialogSync(targetWindow, options)
         )
         event.returnValue = result || []
