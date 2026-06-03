@@ -1,4 +1,5 @@
 import { app, globalShortcut, ipcMain, nativeTheme } from 'electron'
+import fs from 'fs'
 import type { PluginManager } from '../../managers/pluginManager'
 
 // 共享API（主程序和插件都能用）
@@ -414,11 +415,23 @@ export class SettingsAPI {
     console.log('[Settings] 开始捕获选中内容...')
     try {
       const contents = NativeWindowManager.getSelectedContent()
+
+      // 防御性检查：确保 contents 是有效数组
+      if (!Array.isArray(contents)) {
+        console.log('[Settings] 未捕获到任何内容 (contents 不是数组)')
+        return {
+          searchQuery: '',
+          pastedImage: null,
+          pastedFiles: null,
+          pastedText: null
+        }
+      }
+
       console.log('[Settings] 捕获到内容数量:', contents.length)
 
       // 处理文本内容
       const textContent = contents.find((item) => item.type === 'text')
-      if (textContent && typeof textContent.data === 'string') {
+      if (textContent && textContent.type === 'text') {
         const text = textContent.data
         console.log('[Settings] 捕获到文本，长度:', text.length)
         if (text.trim()) {
@@ -436,7 +449,7 @@ export class SettingsAPI {
 
       // 处理图片内容
       const imageContent = contents.find((item) => item.type === 'image')
-      if (imageContent && typeof imageContent.data === 'string') {
+      if (imageContent && imageContent.type === 'image') {
         console.log('[Settings] 捕获到图片')
         return {
           searchQuery: '',
@@ -448,14 +461,23 @@ export class SettingsAPI {
 
       // 处理文件内容
       const fileContent = contents.find((item) => item.type === 'file')
-      if (fileContent && Array.isArray(fileContent.data)) {
+      if (fileContent && fileContent.type === 'file') {
         console.log('[Settings] 捕获到文件，数量:', fileContent.data.length)
-        const files = fileContent.data.map((path) => ({
-          path,
-          name: path.split(/[/\\]/).pop() || '',
-          isDirectory: false, // 需要进一步判断，这里暂时设为 false
-          isFile: true
-        }))
+        const files = fileContent.data.map((filePath) => {
+          let isDirectory = false
+          try {
+            isDirectory = fs.statSync(filePath).isDirectory()
+          } catch (e) {
+            // 忽略读取失败的情况，默认设为 false
+            console.warn(`[Settings] 无法读取文件状态: ${filePath}`, e)
+          }
+          return {
+            path: filePath,
+            name: filePath.split(/[/\\]/).pop() || '',
+            isDirectory,
+            isFile: !isDirectory
+          }
+        })
         return {
           searchQuery: '',
           pastedImage: null,

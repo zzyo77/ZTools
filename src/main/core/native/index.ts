@@ -73,10 +73,11 @@ interface NativeAddon {
    * - macOS: 使用模拟复制方法（Cmd+C）
    * 自动暂停 clipboardMonitor，防止误触发监听
    */
-  getSelectedContent: () => Array<{
-    type: 'text' | 'file' | 'image'
-    data: string | string[]
-  }>
+  getSelectedContent: () => Array<
+    | { type: 'text'; data: string }
+    | { type: 'file'; data: string[] }
+    | { type: 'image'; data: string }
+  >
 }
 
 interface WindowInfo {
@@ -570,7 +571,11 @@ export class WindowManager {
    *   }
    * });
    */
-  static getSelectedContent(): Array<{ type: 'text' | 'file' | 'image'; data: string | string[] }> {
+  static getSelectedContent(): Array<
+    | { type: 'text'; data: string }
+    | { type: 'file'; data: string[] }
+    | { type: 'image'; data: string }
+  > {
     if (platform === 'linux') {
       return []
     }
