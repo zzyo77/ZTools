@@ -53,6 +53,8 @@ export class SettingsAPI {
   // 全局快捷键配置映射（存储每个快捷键的 autoCopy 等配置）
   private globalShortcutConfigs: Map<string, { autoCopy: boolean }> = new Map()
   private globalShortcutKeyboardStateReleasers = new Map<string, () => void>()
+  // 全局快捷键触发流程执行中时，后续触发会被忽略，避免重复复制和重复启动。
+  private isGlobalShortcutTriggering = false
 
   private setupIPC(): void {
     // 主题
@@ -379,41 +381,59 @@ export class SettingsAPI {
     preparation: GlobalShortcutPreparation
   ): Promise<void> {
     if (!this.shouldTriggerGlobalShortcut(preparation.target)) {
+      console.log(`[Settings] 上一次全局快捷键流程未完成，忽略本次触发: ${shortcut}`)
       return
     }
 
-    // 读取该快捷键的 autoCopy 配置，默认 false
-    const config = this.globalShortcutConfigs.get(shortcut)
-    const autoCopy = config?.autoCopy ?? false
+    this.isGlobalShortcutTriggering = true
 
-    console.log(`[Settings] 快捷键触发: ${shortcut}`)
-    console.log(`[Settings] 指令类型需要文本: ${preparation.shouldCaptureSelectedText}`)
-    console.log(`[Settings] 用户启用自动复制: ${autoCopy}`)
+    try {
+      // 读取该快捷键的 autoCopy 配置，默认 false
+      const config = this.globalShortcutConfigs.get(shortcut)
+      const autoCopy = config?.autoCopy ?? false
 
-    // 双重判断：指令类型需要文本 AND 用户启用自动复制
-    const shouldCapture = preparation.shouldCaptureSelectedText && autoCopy
+      console.log(`[Settings] 快捷键触发: ${shortcut}`)
+      console.log(`[Settings] 指令类型需要文本: ${preparation.shouldCaptureSelectedText}`)
+      console.log(`[Settings] 用户启用自动复制: ${autoCopy}`)
 
-    console.log(`[Settings] 最终是否执行取词: ${shouldCapture}`)
+      // 双重判断：指令类型需要文本 AND 用户启用自动复制
+      const shouldCapture = preparation.shouldCaptureSelectedText && autoCopy
 
-    const context = shouldCapture ? await this.captureSelectedTextContext() : undefined
-    await this.handleGlobalShortcut(preparation.target, context)
+      console.log(`[Settings] 最终是否执行取词: ${shouldCapture}`)
+
+      const context = shouldCapture ? await this.captureSelectedTextContext() : undefined
+      await this.handleGlobalShortcut(preparation.target, context)
+    } finally {
+      this.isGlobalShortcutTriggering = false
+    }
   }
 
   /**
    * 判断某个快捷键目标是否允许在阻断期内再次触发。
-   * 由于新的 native getSelectedContent() 方法不再需要等待，防抖逻辑已移除。
+   * 若上一次全局快捷键流程尚未完成，直接忽略新的触发，避免重复取词和重复启动。
    */
   private shouldTriggerGlobalShortcut(_target: string): boolean {
-    return true
+    return !this.isGlobalShortcutTriggering
   }
 
   /**
    * 获取当前选中内容并转换成快捷键启动上下文。
-   * 使用 native getSelectedContent() 方法，自动处理按键释放和剪贴板暂停。
+   * 使用 native getSelectedContent() 方法，自动处理剪贴板暂停；调用前需等待修饰键释放。
    */
   private async captureSelectedTextContext(): Promise<ShortcutLaunchContext> {
     console.log('[Settings] 开始捕获选中内容...')
     try {
+      const modifiersReleased = await doubleTapManager.waitForModifierKeysReleased()
+      if (!modifiersReleased) {
+        console.warn('[Settings] 修饰键未在限定时间内抬起，跳过本次取词')
+        return {
+          searchQuery: '',
+          pastedImage: null,
+          pastedFiles: null,
+          pastedText: null
+        }
+      }
+
       const contents = NativeWindowManager.getSelectedContent()
 
       // 防御性检查：确保 contents 是有效数组
