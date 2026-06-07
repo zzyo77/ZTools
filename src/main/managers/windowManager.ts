@@ -92,6 +92,7 @@ class WindowManager {
   private blurHideTimer: ReturnType<typeof setTimeout> | null = null // Linux blur 延迟隐藏定时器
   // Double-tap 唤醒窗口时，Windows 可能紧跟一个短暂 blur；这两个 timer 用于跳过误关闭并补一次焦点。
   private doubleTapFocusTimer: ReturnType<typeof setTimeout> | null = null
+  private windowsHotkeyFocusTimer: ReturnType<typeof setTimeout> | null = null
   private doubleTapSuppressBlurTimer: ReturnType<typeof setTimeout> | null = null
   // 全局左键状态用于区分“点击外部关闭”和“从外部拖文件进窗口”。拖拽时 blur 先挂起，等 mouseup 再判断。
   private leftMouseDown: boolean = false // 全局左键是否按下，用于拖拽时延迟 blur 隐藏
@@ -748,6 +749,9 @@ class WindowManager {
         return
       }
       this.showWindow()
+      if (platform.isWindows) {
+        this.scheduleWindowsHotkeyRefocus()
+      }
     }
   }
 
@@ -803,12 +807,35 @@ class WindowManager {
     if (!platform.isWindows) return
     if (!this.mainWindow?.isVisible()) return
 
+    this.refocusActiveContentOnWindows()
+  }
+
+  private scheduleWindowsHotkeyRefocus(): void {
+    if (!platform.isWindows) return
+    if (this.windowsHotkeyFocusTimer) clearTimeout(this.windowsHotkeyFocusTimer)
+    // Windows 前台键盘目标有时会晚于 show/focus 稳定，延后一小段时间再补激活。
+    this.windowsHotkeyFocusTimer = setTimeout(() => {
+      this.refocusActiveContentOnWindows()
+      this.windowsHotkeyFocusTimer = null
+    }, 80)
+  }
+
+  private refocusActiveContentOnWindows(): void {
+    if (!platform.isWindows) return
+    if (!this.mainWindow?.isVisible()) return
+
     app.focus({ steal: true })
     this.mainWindow.show()
     this.mainWindow.moveTop()
     // Electron 的 isFocused 有时已经为 true，但 Windows 前台键盘目标仍未切到本应用；这里用原生激活补齐。
     NativeWindowManager.activateWindow(process.pid)
     this.mainWindow.focus()
+    if (pluginManager.getCurrentPluginPath() !== null && this.lastFocusTarget !== 'mainWindow') {
+      pluginManager.focusPluginView()
+      setImmediate(() => pluginManager.forceRepaintCurrentView())
+      return
+    }
+
     this.mainWindow.webContents.focus()
     this.mainWindow.webContents.send('focus-search', this.previousActiveWindow || null)
   }
