@@ -16,7 +16,6 @@
           :ref="(el) => setItemRef(el, index)"
           class="app-item"
           :class="{ selected: index === selectedIndex }"
-          style="cursor: pointer"
           :title="getTitleText(app)"
           @click="$emit('select', app)"
           @contextmenu.prevent="$emit('contextmenu', app)"
